@@ -45,4 +45,8 @@ Use the following credentials to log in:
 
 ## License
 This project is for demonstration purposes only. 
+
+## Project Link
+https://wealth-map-six.vercel.app/company
+
  
