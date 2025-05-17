@@ -1,0 +1,71 @@
+import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { getCurrentUser } from './mocks/mockData';
+
+// Components
+import Layout from './components/layout/Layout';
+import Login from './components/auth/Login';
+import Register from './components/auth/Register';
+import SetupMFA from './components/auth/SetupMFA';
+import Dashboard from './pages/Dashboard';
+import PropertyMap from './pages/PropertyMap';
+import PropertyDetails from './pages/PropertyDetails';
+import Search from './pages/Search';
+import CompanySettings from './pages/CompanySettings';
+import UserManagement from './pages/UserManagement';
+import DataSources from './pages/DataSources';
+import ActivityLogs from './pages/ActivityLogs';
+import NotFound from './pages/NotFound';
+
+// Auth context
+import { AuthProvider } from './context/AuthContext';
+
+function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Start as not authenticated
+  const currentUser = getCurrentUser();
+
+  // Protected route wrapper
+  const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+    if (!isAuthenticated) {
+      return <Navigate to="/login" replace />;
+    }
+    return <>{children}</>;
+  };
+
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Auth routes */}
+          <Route path="/login" element={<Login onLogin={() => setIsAuthenticated(true)} />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/setup-mfa" element={<SetupMFA />} />
+          
+          {/* Protected routes */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Layout user={currentUser} />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Dashboard />} />
+            <Route path="map" element={<PropertyMap />} />
+            <Route path="properties/:id" element={<PropertyDetails />} />
+            <Route path="search" element={<Search />} />
+            <Route path="company" element={<CompanySettings />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="data-sources" element={<DataSources />} />
+            <Route path="activity" element={<ActivityLogs />} />
+          </Route>
+          
+          {/* Not found */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
