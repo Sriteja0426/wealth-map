@@ -1,7 +1,124 @@
+import { faker } from '@faker-js/faker';
 import { User, Company, Property, Owner, SavedSearch, ActivityLog, DataSourceInfo } from '../types';
 
-// Mock users
-export const mockUsers: User[] = [
+// Generate more realistic mock data for properties
+const generateMockProperties = (count: number): Property[] => {
+  const properties: Property[] = [];
+  
+  // Major US cities with their coordinates
+  const cities = [
+    { name: 'New York', state: 'NY', lat: 40.7128, lng: -74.0060 },
+    { name: 'Los Angeles', state: 'CA', lat: 34.0522, lng: -118.2437 },
+    { name: 'Chicago', state: 'IL', lat: 41.8781, lng: -87.6298 },
+    { name: 'Houston', state: 'TX', lat: 29.7604, lng: -95.3698 },
+    { name: 'Phoenix', state: 'AZ', lat: 33.4484, lng: -112.0740 },
+    { name: 'Philadelphia', state: 'PA', lat: 39.9526, lng: -75.1652 },
+    { name: 'San Antonio', state: 'TX', lat: 29.4241, lng: -98.4936 },
+    { name: 'San Diego', state: 'CA', lat: 32.7157, lng: -117.1611 },
+    { name: 'Dallas', state: 'TX', lat: 32.7767, lng: -96.7970 },
+    { name: 'San Jose', state: 'CA', lat: 37.3382, lng: -121.8863 },
+    { name: 'Austin', state: 'TX', lat: 30.2672, lng: -97.7431 },
+    { name: 'Seattle', state: 'WA', lat: 47.6062, lng: -122.3321 },
+    { name: 'Denver', state: 'CO', lat: 39.7392, lng: -104.9903 },
+    { name: 'Boston', state: 'MA', lat: 42.3601, lng: -71.0589 },
+    { name: 'Miami', state: 'FL', lat: 25.7617, lng: -80.1918 }
+  ];
+
+  const propertyTypes: Array<Property['propertyType']> = [
+    'Residential',
+    'Commercial',
+    'Industrial',
+    'Land',
+    'Mixed Use'
+  ];
+
+  const ownerTypes: Array<Owner['type']> = [
+    'Individual',
+    'Company',
+    'Trust',
+    'Government'
+  ];
+
+  const streetTypes = ['St', 'Ave', 'Blvd', 'Dr', 'Ln', 'Rd', 'Way', 'Circle', 'Court'];
+  const streetNames = ['Main', 'Oak', 'Maple', 'Cedar', 'Pine', 'Elm', 'Washington', 'Lake', 'Hill', 'River'];
+
+  for (let i = 0; i < count; i++) {
+    const city = cities[Math.floor(Math.random() * cities.length)];
+    const latOffset = (Math.random() - 0.5) * 0.1;
+    const lngOffset = (Math.random() - 0.5) * 0.1;
+    
+    const propertyType = propertyTypes[Math.floor(Math.random() * propertyTypes.length)];
+    const ownerType = ownerTypes[Math.floor(Math.random() * ownerTypes.length)];
+    
+    const streetNumber = Math.floor(Math.random() * 9900) + 100;
+    const streetName = streetNames[Math.floor(Math.random() * streetNames.length)];
+    const streetType = streetTypes[Math.floor(Math.random() * streetTypes.length)];
+    
+    const owner: Owner = {
+      id: `owner-${i}`,
+      name: ownerType === 'Individual' 
+        ? faker.person.fullName()
+        : faker.company.name(),
+      type: ownerType,
+      netWorth: Math.floor(Math.random() * 100000000) + 1000000,
+      confidenceScore: Math.random() * 0.3 + 0.7,
+      properties: [`property-${i}`],
+      lastUpdated: faker.date.recent().toISOString(),
+      dataSources: [
+        {
+          name: 'Property Records',
+          lastUpdated: faker.date.recent().toISOString(),
+          confidenceScore: Math.random() * 0.2 + 0.8
+        },
+        {
+          name: 'Financial Records',
+          lastUpdated: faker.date.recent().toISOString(),
+          confidenceScore: Math.random() * 0.2 + 0.8
+        }
+      ]
+    };
+
+    const property: Property = {
+      id: `property-${i}`,
+      address: `${streetNumber} ${streetName} ${streetType}`,
+      city: city.name,
+      state: city.state,
+      zipCode: faker.location.zipCode(),
+      lat: city.lat + latOffset,
+      lng: city.lng + lngOffset,
+      propertyType,
+      size: Math.floor(Math.random() * 10000) + 1000,
+      value: Math.floor(Math.random() * 5000000) + 500000,
+      lastSale: {
+        date: faker.date.past().toISOString(),
+        price: Math.floor(Math.random() * 4000000) + 400000
+      },
+      yearBuilt: Math.floor(Math.random() * 70) + 1950,
+      owner,
+      images: [
+        'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
+        'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
+      ],
+      features: [
+        `${Math.floor(Math.random() * 6) + 2} Bedrooms`,
+        `${Math.floor(Math.random() * 4) + 1} Bathrooms`,
+        'Parking',
+        propertyType === 'Commercial' ? 'Office Space' : 'Living Room',
+        Math.random() > 0.5 ? 'Pool' : 'Garden'
+      ]
+    };
+
+    properties.push(property);
+  }
+
+  return properties;
+};
+
+// Generate 500 properties across different cities
+export const mockProperties = generateMockProperties(500);
+
+// Rest of the mock data remains unchanged
+export const mockUsers = [
   {
     id: 'user-001',
     email: 'john.doe@acme.com',
@@ -34,8 +151,7 @@ export const mockUsers: User[] = [
   }
 ];
 
-// Mock companies
-export const mockCompanies: Company[] = [
+export const mockCompanies = [
   {
     id: 'company-001',
     name: 'Acme Real Estate Analytics',
@@ -52,237 +168,7 @@ export const mockCompanies: Company[] = [
   }
 ];
 
-// Mock owners
-export const mockOwners: Owner[] = [
-  {
-    id: 'owner-001',
-    name: 'John Smith',
-    type: 'Individual',
-    netWorth: 15000000,
-    confidenceScore: 0.85,
-    properties: ['property-001', 'property-003'],
-    lastUpdated: '2025-03-15T12:30:45Z',
-    dataSources: [
-      {
-        name: 'Property Records',
-        lastUpdated: '2025-03-15T12:30:45Z',
-        confidenceScore: 0.92
-      },
-      {
-        name: 'Credit Bureau',
-        lastUpdated: '2025-02-28T09:14:22Z',
-        confidenceScore: 0.78
-      }
-    ]
-  },
-  {
-    id: 'owner-002',
-    name: 'Oceanview Holdings LLC',
-    type: 'Company',
-    netWorth: 98000000,
-    confidenceScore: 0.92,
-    properties: ['property-002', 'property-004', 'property-005'],
-    lastUpdated: '2025-03-22T14:25:12Z',
-    dataSources: [
-      {
-        name: 'Corporate Filings',
-        lastUpdated: '2025-03-22T14:25:12Z',
-        confidenceScore: 0.95
-      },
-      {
-        name: 'Business Credit',
-        lastUpdated: '2025-03-01T11:08:33Z',
-        confidenceScore: 0.89
-      }
-    ]
-  }
-];
-
-// Mock properties
-export const mockProperties: Property[] = [
-  {
-    id: 'property-001',
-    address: '123 Main Street',
-    city: 'New York',
-    state: 'NY',
-    zipCode: '10001',
-    lat: 40.7128,
-    lng: -74.006,
-    propertyType: 'Residential',
-    size: 2500,
-    value: 1850000,
-    lastSale: {
-      date: '2023-05-12T00:00:00Z',
-      price: 1750000
-    },
-    yearBuilt: 1998,
-    owner: mockOwners[0],
-    images: [
-      'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-      'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
-    ],
-    features: ['4 Bedrooms', '3 Bathrooms', 'Garage', 'Swimming Pool']
-  },
-  {
-    id: 'property-002',
-    address: '456 Market Street',
-    city: 'San Francisco',
-    state: 'CA',
-    zipCode: '94103',
-    lat: 37.7749,
-    lng: -122.4194,
-    propertyType: 'Commercial',
-    size: 15000,
-    value: 12500000,
-    lastSale: {
-      date: '2022-08-03T00:00:00Z',
-      price: 11000000
-    },
-    yearBuilt: 2005,
-    owner: mockOwners[1],
-    images: [
-      'https://images.pexels.com/photos/323705/pexels-photo-323705.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-      'https://images.pexels.com/photos/534220/pexels-photo-534220.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
-    ],
-    features: ['Office Space', '3 Floors', 'Parking Garage', 'Conference Rooms']
-  },
-  {
-    id: 'property-003',
-    address: '789 Park Avenue',
-    city: 'New York',
-    state: 'NY',
-    zipCode: '10021',
-    lat: 40.7725,
-    lng: -73.9630,
-    propertyType: 'Residential',
-    size: 4200,
-    value: 6500000,
-    lastSale: {
-      date: '2021-11-15T00:00:00Z',
-      price: 5800000
-    },
-    yearBuilt: 1912,
-    owner: mockOwners[0],
-    images: [
-      'https://images.pexels.com/photos/1029599/pexels-photo-1029599.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-      'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
-    ],
-    features: ['5 Bedrooms', '4.5 Bathrooms', 'Doorman', 'Terrace']
-  },
-  {
-    id: 'property-004',
-    address: '101 Tech Street',
-    city: 'San Francisco',
-    state: 'CA',
-    zipCode: '94105',
-    lat: 37.7850,
-    lng: -122.3980,
-    propertyType: 'Commercial',
-    size: 25000,
-    value: 28000000,
-    lastSale: {
-      date: '2022-03-20T00:00:00Z',
-      price: 25000000
-    },
-    yearBuilt: 2018,
-    owner: mockOwners[1],
-    images: [
-      'https://images.pexels.com/photos/443383/pexels-photo-443383.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-      'https://images.pexels.com/photos/1134166/pexels-photo-1134166.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
-    ],
-    features: ['Modern Office', '5 Floors', 'Cafeteria', 'Green Building Certified']
-  },
-  {
-    id: 'property-005',
-    address: '222 Jefferson Avenue',
-    city: 'Miami',
-    state: 'FL',
-    zipCode: '33139',
-    lat: 25.7617,
-    lng: -80.1918,
-    propertyType: 'Mixed Use',
-    size: 18000,
-    value: 19500000,
-    lastSale: {
-      date: '2023-01-10T00:00:00Z',
-      price: 17800000
-    },
-    yearBuilt: 2010,
-    owner: mockOwners[1],
-    images: [
-      'https://images.pexels.com/photos/186077/pexels-photo-186077.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-      'https://images.pexels.com/photos/280229/pexels-photo-280229.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
-    ],
-    features: ['Retail First Floor', 'Residential Upper Floors', 'Beachfront View', 'Pool Deck']
-  }
-];
-
-// Generate more properties across the US for the map
-export const generateMoreProperties = (): Property[] => {
-  const baseProperties = [...mockProperties];
-  
-  // Add 100 more properties with randomized data
-  const cities = [
-    { city: 'Los Angeles', state: 'CA', lat: 34.0522, lng: -118.2437 },
-    { city: 'Chicago', state: 'IL', lat: 41.8781, lng: -87.6298 },
-    { city: 'Houston', state: 'TX', lat: 29.7604, lng: -95.3698 },
-    { city: 'Phoenix', state: 'AZ', lat: 33.4484, lng: -112.0740 },
-    { city: 'Philadelphia', state: 'PA', lat: 39.9526, lng: -75.1652 },
-    { city: 'San Antonio', state: 'TX', lat: 29.4241, lng: -98.4936 },
-    { city: 'San Diego', state: 'CA', lat: 32.7157, lng: -117.1611 },
-    { city: 'Dallas', state: 'TX', lat: 32.7767, lng: -96.7970 },
-    { city: 'Austin', state: 'TX', lat: 30.2672, lng: -97.7431 },
-    { city: 'Seattle', state: 'WA', lat: 47.6062, lng: -122.3321 }
-  ];
-  
-  const propertyTypes: Array<Property['propertyType']> = ['Residential', 'Commercial', 'Industrial', 'Land', 'Mixed Use'];
-  
-  for (let i = 0; i < 100; i++) {
-    const cityInfo = cities[Math.floor(Math.random() * cities.length)];
-    const latOffset = (Math.random() - 0.5) * 0.2;
-    const lngOffset = (Math.random() - 0.5) * 0.2;
-    
-    const propertyType = propertyTypes[Math.floor(Math.random() * propertyTypes.length)];
-    const owner = mockOwners[Math.floor(Math.random() * mockOwners.length)];
-    
-    const size = propertyType === 'Residential' 
-      ? 1000 + Math.floor(Math.random() * 5000)
-      : 5000 + Math.floor(Math.random() * 50000);
-    
-    const value = propertyType === 'Residential'
-      ? 500000 + Math.floor(Math.random() * 5000000)
-      : 2000000 + Math.floor(Math.random() * 30000000);
-    
-    baseProperties.push({
-      id: `property-${1000 + i}`,
-      address: `${1000 + Math.floor(Math.random() * 9000)} ${['Main', 'Oak', 'Maple', 'Pine', 'Cedar'][Math.floor(Math.random() * 5)]} ${['St', 'Ave', 'Blvd', 'Dr', 'Ln'][Math.floor(Math.random() * 5)]}`,
-      city: cityInfo.city,
-      state: cityInfo.state,
-      zipCode: `${Math.floor(Math.random() * 90000) + 10000}`,
-      lat: cityInfo.lat + latOffset,
-      lng: cityInfo.lng + lngOffset,
-      propertyType,
-      size,
-      value,
-      lastSale: {
-        date: `202${Math.floor(Math.random() * 4) + 1}-${Math.floor(Math.random() * 12) + 1}-${Math.floor(Math.random() * 28) + 1}T00:00:00Z`,
-        price: value - Math.floor(Math.random() * 1000000)
-      },
-      yearBuilt: 1960 + Math.floor(Math.random() * 63),
-      owner,
-      images: [
-        'https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1',
-        'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1'
-      ],
-      features: ['Feature 1', 'Feature 2', 'Feature 3']
-    });
-  }
-  
-  return baseProperties;
-};
-
-// Mock saved searches
-export const mockSavedSearches: SavedSearch[] = [
+export const mockSavedSearches = [
   {
     id: 'search-001',
     name: 'High Value SF Properties',
@@ -309,8 +195,7 @@ export const mockSavedSearches: SavedSearch[] = [
   }
 ];
 
-// Mock activity logs
-export const mockActivityLogs: ActivityLog[] = [
+export const mockActivityLogs = [
   {
     id: 'activity-001',
     userId: 'user-001',
@@ -363,8 +248,7 @@ export const mockActivityLogs: ActivityLog[] = [
   }
 ];
 
-// Mock data source info
-export const mockDataSources: DataSourceInfo[] = [
+export const mockDataSources = [
   {
     id: 'source-001',
     name: 'County Property Records',
@@ -403,27 +287,23 @@ export const mockDataSources: DataSourceInfo[] = [
   }
 ];
 
-// Get all properties
+// Helper functions
 export const getAllProperties = (): Property[] => {
-  return generateMoreProperties();
+  return mockProperties;
 };
 
-// Get property by ID
 export const getPropertyById = (id: string): Property | undefined => {
   return mockProperties.find(property => property.id === id);
 };
 
-// Get current user
 export const getCurrentUser = (): User => {
-  return mockUsers[0]; // Default to first user (admin)
+  return mockUsers[0];
 };
 
-// Get company info
 export const getCompanyInfo = (): Company => {
   return mockCompanies[0];
 };
 
-// Search properties
 export const searchProperties = (filters: SearchFilters): Property[] => {
   let results = mockProperties;
   
@@ -462,7 +342,6 @@ export const searchProperties = (filters: SearchFilters): Property[] => {
   return results;
 };
 
-// Get activity logs
 export const getActivityLogs = (): ActivityLog[] => {
   return mockActivityLogs;
 };
