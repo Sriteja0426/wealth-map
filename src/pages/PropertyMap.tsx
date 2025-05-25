@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, GeoJSON } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
-import { Search, Filter, MapPin, Building, DollarSign, Calendar, Layers, User } from 'lucide-react';
+import { Search, Filter, MapPin, Building, DollarSign, Calendar, Layers, User, X } from 'lucide-react';
 import { getAllProperties, Property, SearchFilters } from '../mocks/mockData';
+import * as turf from '@turf/turf';
 
 // Fix marker icon issue in React Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -21,9 +22,49 @@ function FitBoundsToMarkers({ properties }: { properties: Property[] }) {
   useEffect(() => {
     if (properties.length > 0) {
       const bounds = L.latLngBounds(properties.map(property => [property.lat, property.lng]));
-      map.fitBounds(bounds, { padding: [50, 50] });
+      map.fitBounds(bounds, { padding: [50, 50], animate: true, duration: 1 });
     }
   }, [map, properties]);
+
+  return null;
+}
+
+// Custom search control
+function SearchControl({ onSearch }: { onSearch: (query: string) => void }) {
+  const map = useMap();
+  const [searchValue, setSearchValue] = useState('');
+
+  const handleSearch = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    onSearch(searchValue);
+  }, [searchValue, onSearch]);
+
+  useEffect(() => {
+    const searchControl = L.Control.extend({
+      onAdd: () => {
+        const container = L.DomUtil.create('div', 'leaflet-control leaflet-bar');
+        container.style.backgroundColor = 'white';
+        container.style.padding = '5px';
+        container.style.borderRadius = '4px';
+        
+        const form = L.DomUtil.create('form', '', container);
+        const input = L.DomUtil.create('input', '', form);
+        input.type = 'text';
+        input.placeholder = 'Search properties...';
+        input.style.width = '200px';
+        input.style.padding = '4px 8px';
+        input.style.border = '1px solid #ccc';
+        input.style.borderRadius = '4px';
+        
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.disableScrollPropagation(container);
+        
+        return container;
+      }
+    });
+    
+    map.addControl(new searchControl({ position: 'topleft' }));
+  }, [map]);
 
   return null;
 }
@@ -42,9 +83,9 @@ const PropertyMap: React.FC = () => {
     sizeMax: undefined,
   });
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [hoveredParcel, setHoveredParcel] = useState<any>(null);
 
   useEffect(() => {
-    // Fetch all properties
     const allProperties = getAllProperties();
     setProperties(allProperties);
     setFilteredProperties(allProperties);
@@ -52,6 +93,14 @@ const PropertyMap: React.FC = () => {
 
   const handlePropertyClick = (property: Property) => {
     setSelectedProperty(property);
+    
+    // Generate mock parcel boundary
+    const center = [property.lat, property.lng];
+    const radius = 0.001; // Roughly 100 meters
+    const points = 32;
+    
+    const circle = turf.circle(center, radius, { steps: points });
+    setHoveredParcel(circle);
   };
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,83 +108,17 @@ const PropertyMap: React.FC = () => {
     setSearchValue(value);
     
     if (value.trim() === '') {
-      // Reset to all properties when search is cleared
       setFilteredProperties(properties);
     } else {
-      // Filter properties based on search
       const filtered = properties.filter(property => 
         property.address.toLowerCase().includes(value.toLowerCase()) ||
         property.city.toLowerCase().includes(value.toLowerCase()) ||
-        property.owner.name.toLowerCase().includes(value.toLowerCase())
+        property.owner.name.toLowerCase().includes(value.toLowerCase()) ||
+        property.zipCode.includes(value)
       );
       setFilteredProperties(filtered);
     }
   };
-
-  const handleFilterChange = (key: keyof SearchFilters, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const applyFilters = () => {
-    let filtered = [...properties];
-    
-    // Filter by property type
-    if (filters.propertyType && filters.propertyType.length > 0) {
-      filtered = filtered.filter(property => filters.propertyType?.includes(property.propertyType));
-    }
-    
-    // Filter by value range
-    if (filters.valueMin) {
-      filtered = filtered.filter(property => property.value >= (filters.valueMin || 0));
-    }
-    
-    if (filters.valueMax) {
-      filtered = filtered.filter(property => property.value <= (filters.valueMax || Infinity));
-    }
-    
-    // Filter by size range
-    if (filters.sizeMin) {
-      filtered = filtered.filter(property => property.size >= (filters.sizeMin || 0));
-    }
-    
-    if (filters.sizeMax) {
-      filtered = filtered.filter(property => property.size <= (filters.sizeMax || Infinity));
-    }
-    
-    setFilteredProperties(filtered);
-    setIsFilterOpen(false);
-  };
-
-  const resetFilters = () => {
-    setFilters({
-      propertyType: [],
-      valueMin: undefined,
-      valueMax: undefined,
-      sizeMin: undefined,
-      sizeMax: undefined,
-    });
-    setFilteredProperties(properties);
-  };
-
-  const togglePropertyType = (type: Property['propertyType']) => {
-    setFilters(prev => {
-      const currentTypes = prev.propertyType || [];
-      
-      if (currentTypes.includes(type)) {
-        return {
-          ...prev,
-          propertyType: currentTypes.filter(t => t !== type)
-        };
-      } else {
-        return {
-          ...prev,
-          propertyType: [...currentTypes, type]
-        };
-      }
-    });
-  };
-  
-  const propertyTypes: Property['propertyType'][] = ['Residential', 'Commercial', 'Industrial', 'Land', 'Mixed Use'];
 
   // Format currency
   const formatCurrency = (value: number) => {
@@ -145,15 +128,6 @@ const PropertyMap: React.FC = () => {
       notation: 'compact',
       maximumFractionDigits: 1
     }).format(value);
-  };
-
-  // Format date
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
   };
 
   return (
@@ -171,7 +145,7 @@ const PropertyMap: React.FC = () => {
               type="text"
               value={searchValue}
               onChange={handleSearchChange}
-              placeholder="Search address, city, or owner..."
+              placeholder="Search address, city, owner, or zip..."
               className="block w-full pl-10 pr-3 py-2 border border-neutral-300 rounded-md text-sm focus:outline-none focus:ring-primary-500 focus:border-primary-500"
             />
           </div>
@@ -196,141 +170,6 @@ const PropertyMap: React.FC = () => {
       
       {/* Map content with sidebar */}
       <div className="flex flex-1 overflow-hidden relative">
-        {/* Filter sidebar */}
-        {isFilterOpen && (
-          <div className="absolute inset-0 z-20 md:relative md:w-80 bg-white border-r border-neutral-200 overflow-auto animate-slide-in">
-            <div className="p-4 border-b border-neutral-200 flex justify-between items-center">
-              <h3 className="font-medium text-neutral-900">Filters</h3>
-              <button 
-                onClick={() => setIsFilterOpen(false)}
-                className="text-neutral-500 hover:text-neutral-700 md:hidden"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="p-4 space-y-6">
-              {/* Property Type */}
-              <div>
-                <h4 className="text-sm font-medium text-neutral-900 mb-2">Property Type</h4>
-                <div className="space-y-2">
-                  {propertyTypes.map(type => (
-                    <label key={type} className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={filters.propertyType?.includes(type) || false}
-                        onChange={() => togglePropertyType(type)}
-                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded"
-                      />
-                      <span className="ml-2 text-sm text-neutral-700">{type}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Value Range */}
-              <div>
-                <h4 className="text-sm font-medium text-neutral-900 mb-2">Property Value</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label htmlFor="valueMin" className="block text-xs text-neutral-500 mb-1">
-                      Min
-                    </label>
-                    <div className="relative rounded-md shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="text-neutral-500 sm:text-sm">$</span>
-                      </div>
-                      <input
-                        type="number"
-                        name="valueMin"
-                        id="valueMin"
-                        className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-7 pr-3 sm:text-sm border-neutral-300 rounded-md"
-                        placeholder="0"
-                        value={filters.valueMin || ''}
-                        onChange={(e) => handleFilterChange('valueMin', e.target.value ? Number(e.target.value) : undefined)}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label htmlFor="valueMax" className="block text-xs text-neutral-500 mb-1">
-                      Max
-                    </label>
-                    <div className="relative rounded-md shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <span className="text-neutral-500 sm:text-sm">$</span>
-                      </div>
-                      <input
-                        type="number"
-                        name="valueMax"
-                        id="valueMax"
-                        className="focus:ring-primary-500 focus:border-primary-500 block w-full pl-7 pr-3 sm:text-sm border-neutral-300 rounded-md"
-                        placeholder="Any"
-                        value={filters.valueMax || ''}
-                        onChange={(e) => handleFilterChange('valueMax', e.target.value ? Number(e.target.value) : undefined)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Size Range */}
-              <div>
-                <h4 className="text-sm font-medium text-neutral-900 mb-2">Property Size (sq ft)</h4>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label htmlFor="sizeMin" className="block text-xs text-neutral-500 mb-1">
-                      Min
-                    </label>
-                    <input
-                      type="number"
-                      name="sizeMin"
-                      id="sizeMin"
-                      className="focus:ring-primary-500 focus:border-primary-500 block w-full px-3 py-2 sm:text-sm border-neutral-300 rounded-md"
-                      placeholder="0"
-                      value={filters.sizeMin || ''}
-                      onChange={(e) => handleFilterChange('sizeMin', e.target.value ? Number(e.target.value) : undefined)}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="sizeMax" className="block text-xs text-neutral-500 mb-1">
-                      Max
-                    </label>
-                    <input
-                      type="number"
-                      name="sizeMax"
-                      id="sizeMax"
-                      className="focus:ring-primary-500 focus:border-primary-500 block w-full px-3 py-2 sm:text-sm border-neutral-300 rounded-md"
-                      placeholder="Any"
-                      value={filters.sizeMax || ''}
-                      onChange={(e) => handleFilterChange('sizeMax', e.target.value ? Number(e.target.value) : undefined)}
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              {/* Actions */}
-              <div className="pt-4 border-t border-neutral-200 flex justify-between">
-                <button
-                  type="button"
-                  onClick={resetFilters}
-                  className="text-sm text-neutral-700 hover:text-neutral-900"
-                >
-                  Reset filters
-                </button>
-                <button
-                  type="button"
-                  onClick={applyFilters}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                >
-                  Apply filters
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        
         {/* Map view */}
         <div className="flex-1 relative">
           <MapContainer
@@ -347,6 +186,21 @@ const PropertyMap: React.FC = () => {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             />
             <FitBoundsToMarkers properties={filteredProperties} />
+            <SearchControl onSearch={(query) => console.log('Search:', query)} />
+            
+            {hoveredParcel && (
+              <GeoJSON
+                data={hoveredParcel}
+                style={{
+                  color: '#2563eb',
+                  weight: 2,
+                  opacity: 0.8,
+                  fillColor: '#3b82f6',
+                  fillOpacity: 0.2
+                }}
+              />
+            )}
+            
             <MarkerClusterGroup>
               {filteredProperties.map(property => (
                 <Marker 
@@ -354,6 +208,15 @@ const PropertyMap: React.FC = () => {
                   position={[property.lat, property.lng]}
                   eventHandlers={{
                     click: () => handlePropertyClick(property),
+                    mouseover: () => {
+                      const circle = turf.circle([property.lat, property.lng], 0.001, { steps: 32 });
+                      setHoveredParcel(circle);
+                    },
+                    mouseout: () => {
+                      if (!selectedProperty || selectedProperty.id !== property.id) {
+                        setHoveredParcel(null);
+                      }
+                    }
                   }}
                 >
                   <Popup>
@@ -411,18 +274,19 @@ const PropertyMap: React.FC = () => {
             </MarkerClusterGroup>
           </MapContainer>
           
-          {/* Property info sidebar (when a property is selected) */}
+          {/* Property info sidebar */}
           {selectedProperty && (
             <div className="absolute top-0 right-0 h-full w-80 bg-white border-l border-neutral-200 overflow-auto shadow-lg hidden lg:block animate-slide-in">
               <div className="p-4 border-b border-neutral-200 flex justify-between items-center">
                 <h3 className="font-medium text-neutral-900">Property Details</h3>
                 <button 
-                  onClick={() => setSelectedProperty(null)}
+                  onClick={() => {
+                    setSelectedProperty(null);
+                    setHoveredParcel(null);
+                  }}
                   className="text-neutral-500 hover:text-neutral-700"
                 >
-                  <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
+                  <X className="h-5 w-5" />
                 </button>
               </div>
               
@@ -462,10 +326,20 @@ const PropertyMap: React.FC = () => {
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-neutral-200">
-                  <h3 className="text-sm font-medium text-neutral-900">Last Sale</h3>
-                  <div className="mt-2 flex justify-between">
-                    <p className="text-sm text-neutral-600">{formatDate(selectedProperty.lastSale.date)}</p>
-                    <p className="text-sm font-medium text-neutral-900">{formatCurrency(selectedProperty.lastSale.price)}</p>
+                  <h3 className="text-sm font-medium text-neutral-900">Geographic Information</h3>
+                  <div className="mt-2 space-y-2">
+                    <div className="flex justify-between">
+                      <p className="text-sm text-neutral-600">Latitude</p>
+                      <p className="text-sm font-medium text-neutral-900">{selectedProperty.lat.toFixed(6)}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm text-neutral-600">Longitude</p>
+                      <p className="text-sm font-medium text-neutral-900">{selectedProperty.lng.toFixed(6)}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm text-neutral-600">Neighborhood Code</p>
+                      <p className="text-sm font-medium text-neutral-900">94201-A</p>
+                    </div>
                   </div>
                 </div>
                 
