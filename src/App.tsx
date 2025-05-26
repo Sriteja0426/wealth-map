@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { getCurrentUser } from './mocks/mockData';
 
@@ -18,17 +18,21 @@ import ActivityLogs from './pages/ActivityLogs';
 import NotFound from './pages/NotFound';
 
 // Auth context
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false); // Start as not authenticated
-  const currentUser = getCurrentUser();
-
   // Protected route wrapper
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-    if (!isAuthenticated) {
+    const { user, isLoading } = useAuth();
+
+    if (isLoading) {
+      return <div>Loading...</div>;
+    }
+
+    if (!user) {
       return <Navigate to="/login" replace />;
     }
+
     return <>{children}</>;
   };
 
@@ -37,7 +41,7 @@ function App() {
       <Router>
         <Routes>
           {/* Auth routes */}
-          <Route path="/login" element={<Login onLogin={() => setIsAuthenticated(true)} />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/setup-mfa" element={<SetupMFA />} />
           
@@ -46,7 +50,7 @@ function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <Layout user={currentUser} />
+                <Layout user={getCurrentUser()} />
               </ProtectedRoute>
             }
           >

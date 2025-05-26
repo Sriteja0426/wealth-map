@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { User } from '../types';
 import { getCurrentUser } from '../mocks/mockData';
 
@@ -13,41 +13,68 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(getCurrentUser());
-  const [isLoading, setIsLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check for stored auth token
+    const storedUser = localStorage.getItem('auth_user');
+    if (storedUser) {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('Error parsing stored user:', error);
+        localStorage.removeItem('auth_user');
+      }
+    }
+    setIsLoading(false);
+  }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (email === 'demo@demo.com' && password === 'password123') {
         const mockUser = getCurrentUser();
         setUser(mockUser);
-        setIsLoading(false);
-        resolve(true);
-      }, 1000);
-    });
+        // Store user data
+        localStorage.setItem('auth_user', JSON.stringify(mockUser));
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Login error:', err);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('auth_user');
   };
 
   const setupMFA = async (): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API call
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (user) {
-          const updatedUser = { ...user, twoFactorEnabled: true };
-          setUser(updatedUser);
-        }
-        setIsLoading(false);
-        resolve(true);
-      }, 1000);
-    });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (user) {
+        const updatedUser = { ...user, twoFactorEnabled: true };
+        setUser(updatedUser);
+        localStorage.setItem('auth_user', JSON.stringify(updatedUser));
+        return true;
+      }
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const value = {
